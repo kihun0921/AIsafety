@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>안전보건관리계획서 자동생성 시스템</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth.js/1.6.0/mammoth.browser.min.js"></script>
+<style>
+  :root{
+    --navy:#1F3A5F;
+    --navy-deep:#132840;
+    --paper:#F5F6F3;
+    --paper-line:#E3E6E1;
+    --ink:#1B1F23;
+    --ink-soft:#5B6470;
+    --amber:#D9932E;
+    --amber-deep:#B87418;
+    --risk-low:#4C8C6B;
+    --risk-mid:#D9A441;
+    --risk-high:#C1443C;
+    --mono: ui-monospace, SFMono-Regular, "IBM Plex Mono", Consolas, monospace;
+    --sans: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  body{min-height:100vh;}
+  .app{display:flex;min-height:100vh;}
+
+  /* ---------- LEFT RAIL ---------- */
+  .rail{
+    width:272px;flex:0 0 272px;background:var(--navy-deep);color:#EAF0F6;
+    padding:28px 20px;position:sticky;top:0;height:100vh;overflow-y:auto;
+  }
+  .stamp{
+    border:1px solid rgba(234,240,246,.35);padding:14px 14px 12px;margin-bottom:26px;position:relative;
+  }
+  .stamp::before{content:"DOC";position:absolute;top:-9px;left:12px;background:var(--navy-deep);
+    padding:0 6px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--amber);}
+  .stamp h1{font-size:15px;line-height:1.4;margin:4px 0 8px;font-weight:800;}
+  .stamp .meta{font-family:var(--mono);font-size:11px;color:#AFC0D2;line-height:1.7;}
+  .railnav{list-style:none;margin:0;padding:0;position:relative;}
+  .railnav::before{content:"";position:absolute;left:13px;top:6px;bottom:6px;width:1px;
+    background:repeating-linear-gradient(to bottom, rgba(234,240,246,.35) 0 4px, transparent 4px 8px);}
+  .railnav li{position:relative;padding:0 0 26px 34px;cursor:pointer;}
+  .railnav li:last-child{padding-bottom:0;}
+  .railnav .dot{position:absolute;left:6px;top:2px;width:15px;height:15px;border-radius:50%;
+    background:var(--navy-deep);border:2px solid #55688A;display:flex;align-items:center;justify-content:center;}
+  .railnav li.done .dot{background:var(--risk-low);border-color:var(--risk-low);}
+  .railnav li.active .dot{background:var(--amber);border-color:var(--amber);box-shadow:0 0 0 4px rgba(217,147,46,.25);}
+  .railnav .tag{font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:#7E93AF;display:block;margin-bottom:2px;}
+  .railnav .label{font-size:13.5px;font-weight:700;color:#EAF0F6;}
+  .railnav li.active .label{color:#fff;}
+  .railnav .sub{font-size:11.5px;color:#8FA2BB;margin-top:3px;line-height:1.5;}
+
+  /* ---------- MAIN ---------- */
+  .main{flex:1;min-width:0;padding:36px 44px 80px;max-width:980px;}
+  .crumb{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;}
+  .pagehead{display:flex;align-items:baseline;justify-content:space-between;border-bottom:3px solid var(--ink);padding-bottom:14px;margin-bottom:26px;gap:16px;}
+  .pagehead h2{font-size:26px;margin:0;font-weight:800;letter-spacing:-.01em;}
+  .pagehead .hint{font-size:12.5px;color:var(--ink-soft);max-width:340px;text-align:right;line-height:1.5;}
+
+  .card{background:#fff;border:1px solid var(--paper-line);padding:22px 24px;margin-bottom:18px;position:relative;}
+  .card + .card{margin-top:18px;}
+  .card h3{font-size:14px;margin:0 0 14px;font-weight:800;display:flex;align-items:center;gap:8px;}
+  .card h3 .num{font-family:var(--mono);font-size:11px;background:var(--ink);color:#fff;padding:2px 6px;}
+  .cardfoot{border-top:1px dashed var(--paper-line);margin-top:16px;padding-top:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:5px;letter-spacing:.02em;}
+  input[type=text],input[type=number],input[type=date],input[type=file],select,textarea{
+    width:100%;border:1px solid #D3D7D2;background:#FCFDFB;padding:9px 10px;font-size:13.5px;
+    font-family:var(--sans);color:var(--ink);
+  }
+  textarea{resize:vertical;line-height:1.6;font-size:13px;}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber);}
+  .field{margin-bottom:12px;}
+
+  .btn{font-family:var(--sans);font-weight:700;font-size:13px;border:none;cursor:pointer;padding:10px 18px;
+    background:var(--ink);color:#fff;letter-spacing:.01em;}
+  .btn:hover{background:#000;}
+  .btn.primary{background:var(--amber-deep);}
+  .btn.primary:hover{background:#9A5E10;}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--ink);}
+  .btn.ghost:hover{background:var(--ink);color:#fff;}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn.small{padding:6px 12px;font-size:12px;}
+  .linklike{background:none;border:none;color:var(--navy);font-weight:700;font-size:12.5px;cursor:pointer;padding:0;text-decoration:underline;}
+
+  .note{font-size:12px;color:var(--ink-soft);background:#FBF6EC;border-left:3px solid var(--amber);padding:9px 12px;margin-bottom:14px;line-height:1.6;}
+  .err{font-size:12px;color:#7A2B26;background:#FBEEEC;border-left:3px solid var(--risk-high);padding:9px 12px;margin:10px 0;line-height:1.6;}
+
+  .result-list{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+  .result-item{border:1px solid var(--paper-line);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .result-item .rt{font-weight:700;font-size:13.5px;margin-bottom:3px;}
+  .result-item .rm{font-family:var(--mono);font-size:11px;color:var(--ink-soft);}
+
+  .chipbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+  .chip{font-family:var(--mono);font-size:11.5px;background:var(--paper);border:1px solid #D3D7D2;padding:5px 10px;display:flex;align-items:center;gap:6px;}
+  .chip.tplchip{background:#EFF3EE;}
+  .chip button{border:none;background:none;color:var(--risk-high);font-weight:800;cursor:pointer;font-size:12px;}
+  .addchip{display:flex;gap:8px;margin-top:8px;}
+  .addchip input{flex:1;}
+
+  .badge{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 7px;color:#fff;}
+  .badge.low{background:var(--risk-low);}
+  .badge.mid{background:var(--risk-mid);}
+  .badge.high{background:var(--risk-high);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{border:1px solid var(--paper-line);padding:7px 8px;text-align:left;vertical-align:top;}
+  th{background:var(--paper);font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);}
+
+  .statusdot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:7px;background:#C7CCC5;}
+  .statusdot.ready{background:var(--risk-low);}
+  .statusdot.loading{background:var(--amber);animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .navbtns{display:flex;justify-content:space-between;margin-top:30px;}
+
+  .previewpage{background:#fff;border:1px solid var(--paper-line);padding:40px 48px;font-size:13px;line-height:1.8;}
+  .previewpage h1{text-align:center;font-size:22px;margin-bottom:6px;}
+  .previewpage .psub{text-align:center;color:var(--ink-soft);font-family:var(--mono);font-size:11px;margin-bottom:36px;}
+  .previewpage h2.sec{font-size:15px;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-top:34px;}
+  .previewpage pre{white-space:pre-wrap;font-family:var(--sans);font-size:13px;line-height:1.8;margin:0 0 18px;}
+
+  .tplbox{border:1px dashed var(--paper-line);padding:16px;margin-top:12px;background:#FAFBF9;}
+  .tplselectrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .tplselectrow select{flex:1;min-width:220px;}
+
+  @media print{
+    .rail,.navbtns,.no-print{display:none !important;}
+    .main{max-width:none;padding:0;}
+    .previewpage{border:none;padding:0;}
+  }
+
+  @media (max-width:860px){
+    .app{flex-direction:column;}
+    .rail{position:relative;width:100%;height:auto;}
+    .main{padding:24px 18px;}
+    .grid2,.grid3{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===================== LEFT RAIL ===================== -->
+  <div class="rail">
+    <div class="stamp">
+      <h1 id="railTitle">안전보건관리계획서<br>자동생성 시스템</h1>
+      <div class="meta" id="railMeta">문서번호 —<br>업체명 —</div>
+    </div>
+    <ul class="railnav" id="railnav">
+      <li data-step="1">
+        <span class="dot"></span>
+        <span class="tag">STEP 01 · 준비</span>
+        <span class="label">공고문 · 발주처 양식</span>
+        <div class="sub">나라장터 공고 확보 + 적용할 양식 선택</div>
+      </li>
+      <li data-step="2">
+        <span class="dot"></span>
+        <span class="tag">STEP 02 · 분석</span>
+        <span class="label">공사 성질 분석</span>
+        <div class="sub">공정·위험요인 자동 도출</div>
+      </li>
+      <li data-step="3">
+        <span class="dot"></span>
+        <span class="tag">STEP 03 · 생성</span>
+        <span class="label">항목별 자동생성</span>
+        <div class="sub">선택된 양식의 항목을 그대로 생성</div>
+      </li>
+      <li data-step="4">
+        <span class="dot"></span>
+        <span class="tag">STEP 04 · 출력</span>
+        <span class="label">미리보기·제출</span>
+        <div class="sub">전체 문서 조립 및 인쇄</div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main" id="main"></div>
+</div>
+
+<script>
+/* ============================================================
+   내장 템플릿 — 실제로 확인된 두 가지 발주처 양식 패턴을 기본 제공.
+   새 발주처를 만나면 STEP 01에서 원문을 붙여넣어 AI로 구조를 분석,
+   같은 스키마 형태로 등록하면 이 배열과 동일하게 동작한다.
+
+   section.kind
+     "template"      → 결정적 템플릿(표지/제출문) — API 호출 없이 즉시 조립
+     "template_edu"  → 결정적 템플릿(교육계획) — 상시근로자수 기준 분기
+     "ai"            → Claude API로 초안 생성. instructions/evidence/fields를 프롬프트에 반영
+   ============================================================ */
+const BUILTIN_TEMPLATES = {
+  mnd_2026_05: {
+    id: "mnd_2026_05",
+    name: "국방부 붙임5 (수의계약, ’26.5월 개정)",
+    sections: [
+      { key:"cover", label:"표지 및 제출문", kind:"template" },
+      { key:"risk", label:"Ⅰ-1. 위험성평가", kind:"ai",
+        instructions:"사업주는 다음 4가지 방법 중 이 공사 규모·특성에 가장 적합한 것을 하나 선정한다: ① 빈도·강도법(가능성×중대성) ② 체크리스트법 ③ 위험성수준 3단계(저·중·고) 판단법 ④ 핵심요인 기술법(2023 새로운 위험성평가 안내서, 고용노동부 참고). 선정한 방법과 사유를 1~2문장으로 밝히고, 이어서 공정별 위험성평가표를 '단위작업 | 유해위험요인 | 위험성 수준 | 감소대책' 형태로 작성하라." },
+      { key:"inspection", label:"Ⅰ-2. 안전점검 및 모니터링 (보호구 관리 포함)", kind:"ai",
+        instructions:"가. 점검계획(일일·특별점검의 점검자·방법·시기), 나. 점검결과 조치절차, 다. 보호구 지급 및 관리계획(위험요인에 대응하는 보호구 종류·지급주기·불량품 조치)을 이 공사 공정에 맞춰 작성하라. 해당 공사와 무관한 보호구는 넣지 마라." },
+      { key:"edu", label:"Ⅰ-3. 안전·보건교육 계획 및 기록 관리", kind:"template_edu" },
+      { key:"disaster", label:"Ⅱ-1. 재해발생수준 (산업재해 현황, 최근 3년)", kind:"ai",
+        evidence:["산재요양 승인/반려 여부 확인서","4대 사회보험 가입자 명부"],
+        fields:[
+          {id:"approvedCount", label:"산재요양 승인 건수", placeholder:"예: 0건"},
+          {id:"rejectedCount", label:"산재요양 반려 건수", placeholder:"예: 0건"},
+          {id:"insuredCount", label:"4대 사회보험 가입자 수", placeholder:"예: 12명"},
+          {id:"siteWorkerCount", label:"현장 투입 예정 인원", placeholder:"예: 12명"}
+        ],
+        instructions:"산재요양 승인/반려 여부 확인서를 근거자료로 인용한다는 문구를 포함하고, 4대 사회보험 가입자 명부상 인원과 현장 투입 예정 인원의 일치 여부를 언급하라." },
+    ]
+  },
+  legacy_injury_rate: {
+    id: "legacy_injury_rate",
+    name: "일반형 (구 산업재해율확인서 방식)",
+    sections: [
+      { key:"cover", label:"표지 및 제출문", kind:"template" },
+      { key:"risk", label:"Ⅰ. 위험성평가", kind:"ai",
+        instructions:"위험성평가 실시절차(사전준비~기록, 5~6단계)를 간단히 요약하고, 공정별 위험성평가표를 '단위작업 | 유해위험요인 | 가능성(1~3) | 중대성(1~3) | 위험성 | 감소대책' 형태로 작성하라." },
+      { key:"plan", label:"Ⅱ. 안전관리계획서", kind:"ai",
+        instructions:"가. 안전관리 목표 및 방침(1~2문장), 나. 현장소장의 안전관리(공정 특성 반영 3항목 내외), 다. 안전점검 항목(5개 내외), 라. 현장별 세부 안전관리계획(이 공사에 실제 해당하는 사항만)을 작성하라." },
+      { key:"edu", label:"Ⅲ. 안전보건교육 계획", kind:"template_edu" },
+      { key:"disaster", label:"Ⅳ. 재해발생수준", kind:"ai",
+        evidence:["사업장 산업재해율 조회 결과서"],
+        fields:[
+          {id:"fatalityRate", label:"최근 3년 사고사망만인율(‰)", placeholder:"예: 0.00"},
+          {id:"fatalityAvg", label:"동종동규모 평균", placeholder:"예: 1.84"},
+          {id:"injuryRate", label:"최근 3년 재해율(%)", placeholder:"예: 0.00"},
+          {id:"injuryAvg", label:"동종동규모 평균", placeholder:"예: 1.53"}
+        ],
+        instructions:"사업장 산업재해율 조회 결과서를 근거자료로 인용한다는 문구를 포함하고, 수치를 동종동규모 평균과 비교하는 단락을 작성하라." },
+    ]
+  }
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  step: 1,
+  gonggo: { title:"", agency:"", workType:"", budget:"", period:"", location:"", raw:"" },
+  company: { name:"", ceo:"", bizNo:"", addr:"", headcount:"" },
+  proxyBase: "http://localhost:8787",
+  searchResults: [],
+  searchError:"",
+  searching:false,
+  analysis: null,
+  analyzing:false,
+  analyzeError:"",
+
+  templates: { ...BUILTIN_TEMPLATES },   // 내장 + 서버에서 불러온 커스텀 템플릿 병합
+  selectedTemplateId: "mnd_2026_05",
+  templateFetchNote: "",
+  newTemplateOpen: false,
+  newTemplateDraft: { agencyName:"", rawText:"", parsing:false, error:"" },
+
+  genText: {},        // "{templateId}:{sectionKey}" -> {status, text}
+  fieldValues: {},     // "{sectionKey}.{fieldId}" -> value
+};
+
+/* ============================================================
+   CLAUDE API HELPER
+   ============================================================ */
+async function callClaude(system, prompt){
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      model:"claude-sonnet-4-6",
+      max_tokens:1000,
+      system: system,
+      messages:[{role:"user", content: prompt}]
+    })
+  });
+  const data = await res.json();
+  if(!data || !data.content) throw new Error("AI 응답을 받지 못했습니다.");
+  return data.content.map(b=>b.text||"").join("\n");
+}
+function stripFence(t){
+  return t.replace(/```json/gi,"").replace(/```/g,"").trim();
+}
+
+/* ============================================================
+   TEMPLATE HELPERS
+   ============================================================ */
+function currentTemplate(){
+  return state.templates[state.selectedTemplateId] || Object.values(state.templates)[0];
+}
+function secStore(sectionKey){
+  const k = state.selectedTemplateId + ":" + sectionKey;
+  if(!state.genText[k]) state.genText[k] = { status:"idle", text:"" };
+  return state.genText[k];
+}
+async function fetchServerTemplates(){
+  if(!state.proxyBase) return;
+  try{
+    const res = await fetch(state.proxyBase.replace(/\/$/,"") + "/api/templates");
+    const data = await res.json();
+    if(data.ok){
+      state.templates = { ...BUILTIN_TEMPLATES, ...data.templates };
+      state.templateFetchNote = Object.keys(data.templates).length
+        ? `프록시 서버에 저장된 발주처 양식 ${Object.keys(data.templates).length}건을 불러왔습니다.`
+        : "";
+    }
+  }catch(e){
+    // 프록시가 없거나 꺼져 있으면 내장 템플릿만 사용 — 조용히 무시
+  }
+  render();
+}
+
+/* ============================================================
+   RENDER ROOT
+   ============================================================ */
+function render(){
+  renderRail();
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  if(state.step===1) main.appendChild(renderStep1());
+  if(state.step===2) main.appendChild(renderStep2());
+  if(state.step===3) main.appendChild(renderStep3());
+  if(state.step===4) main.appendChild(renderStep4());
+}
+
+function renderRail(){
+  const tpl = currentTemplate();
+  document.getElementById("railMeta").innerHTML =
+    `문서번호 ${docNumber()}<br>업체명 ${state.company.name || "—"}<br>적용양식 ${tpl ? tpl.name : "—"}`;
+  document.querySelectorAll(".railnav li").forEach(li=>{
+    const s = parseInt(li.dataset.step,10);
+    li.classList.remove("active","done");
+    if(s === state.step) li.classList.add("active");
+    else if(s < state.step) li.classList.add("done");
+    li.onclick = ()=>{ if(s <= maxReachableStep()) { state.step = s; render(); } };
+  });
+}
+function docNumber(){
+  const d = new Date();
+  return `AC-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+}
+function maxReachableStep(){
+  let m = 1;
+  if(state.gonggo.title) m = 2;
+  if(state.analysis) m = 3;
+  const tpl = currentTemplate();
+  if(tpl && tpl.sections.some(s => secStore(s.key).text)) m = 4;
+  return m;
+}
+
+/* ============================================================
+   SHARED UI HELPERS
+   ============================================================ */
+function el(html){
+  const t = document.createElement("template");
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild;
+}
+function pageHead(crumb, title, hint){
+  return `<div class="crumb">${crumb}</div>
+    <div class="pagehead"><h2>${title}</h2><div class="hint">${hint}</div></div>`;
+}
+
+/* ============================================================
+   STEP 1 — 공고문 확보 + 발주처 양식 선택
+   ============================================================ */
+function renderStep1(){
+  const wrap = el(`<div></div>`);
+  wrap.innerHTML = pageHead("STEP 01 / 04", "공고문 확보 · 발주처 양식 선택", "나라장터 검색 또는 직접입력으로 공고를 확보하고, 이 발주처가 요구하는 안전보건관리계획서 양식을 선택합니다.");
+
+  wrap.appendChild(el(`
+    <div class="card">
+      <h3><span class="num">A</span>나라장터(G2B) 공고 검색</h3>
+      <div class="note">
+        서비스키는 브라우저 화면이 아닌 프록시 서버(.env)에만 보관합니다. 아래에는 직접 만든(또는 로컬에서 실행 중인)
+        프록시 서버 주소만 입력하면 됩니다. 프록시 서버 코드와 실행 방법은 함께 전달된 server/README.md를 참고하세요.
+      </div>
+      <div class="grid3">
+        <div class="field"><label>프록시 서버 주소</label><input type="text" id="proxyInput" placeholder="http://localhost:8787" value="${state.proxyBase}"></div>
+        <div class="field"><label>검색어</label><input type="text" id="kwInput" placeholder="예: 울타리, 전기공사"></div>
+        <div class="field"><label>최근 며칠간 공고</label>
+          <select id="daysInput">
+            <option value="7">7일</option>
+            <option value="14" selected>14일</option>
+            <option value="30">30일</option>
+          </select>
+        </div>
+      </div>
+      <div class="cardfoot">
+        <button class="btn primary" id="btnSearch">나라장터 검색</button>
+        <span id="searchStatus" style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);"></span>
+      </div>
+      <div id="searchErrBox"></div>
+      <div class="result-list" id="resultList"></div>
+    </div>
+  `));
+
+  wrap.appendChild(el(`
+    <div class="card">
+      <h3><span class="num">B</span>공고 정보 직접입력 / 확정</h3>
+      <div class="grid2">
+        <div class="field"><label>공고명</label><input type="text" id="f_title" value="${state.gonggo.title}"></div>
+        <div class="field"><label>발주기관</label><input type="text" id="f_agency" value="${state.gonggo.agency}"></div>
+        <div class="field"><label>공사 종류</label><input type="text" id="f_workType" value="${state.gonggo.workType}" placeholder="예: 전기공사, 조경공사, 통신설비공사"></div>
+        <div class="field"><label>추정금액</label><input type="text" id="f_budget" value="${state.gonggo.budget}" placeholder="예: 43,000,000원"></div>
+        <div class="field"><label>공사기간</label><input type="text" id="f_period" value="${state.gonggo.period}" placeholder="예: 착공일로부터 30일간"></div>
+        <div class="field"><label>현장 위치</label><input type="text" id="f_location" value="${state.gonggo.location}"></div>
+      </div>
+      <div class="field"><label>공고 본문 / 과업내용 요약 (있는 만큼 붙여넣기)</label>
+        <textarea id="f_raw" rows="4" placeholder="공고문 과업내용, 시방서 요약 등을 붙여넣으면 다음 단계의 분석 정확도가 높아집니다.">${state.gonggo.raw}</textarea>
+      </div>
+    </div>
+  `));
+
+  wrap.appendChild(el(`
+    <div class="card">
+      <h3><span class="num">C</span>수급업체 정보</h3>
+      <div class="grid2">
+        <div class="field"><label>업체명</label><input type="text" id="c_name" value="${state.company.name}"></div>
+        <div class="field"><label>대표자</label><input type="text" id="c_ceo" value="${state.company.ceo}"></div>
+        <div class="field"><label>사업자등록번호</label><input type="text" id="c_biz" value="${state.company.bizNo}"></div>
+        <div class="field"><label>소재지</label><input type="text" id="c_addr" value="${state.company.addr}"></div>
+        <div class="field"><label>상시근로자 수</label><input type="text" id="c_headcount" value="${state.company.headcount}" placeholder="예: 12명 — 안전보건교육 대상 범위 판단에 사용"></div>
+      </div>
+    </div>
+  `));
+
+  wrap.appendChild(renderTemplateCard());
+
+  const nav = el(`<div class="navbtns"><span></span><button class="btn primary" id="toStep2">공사 분석으로 이동 →</button></div>`);
+  wrap.appendChild(nav);
+
+  wrap.querySelector("#btnSearch").onclick = doNaraSearch;
+  wrap.querySelector("#toStep2").onclick = ()=>{
+    syncStep1Fields(wrap);
+    if(!state.gonggo.title){ alert("공고명을 입력하거나 검색 결과를 선택해 주세요."); return; }
+    state.step = 2; render();
+  };
+  renderResultList(wrap);
+  return wrap;
+}
+
+function renderTemplateCard(){
+  const card = el(`
+    <div class="card">
+      <h3><span class="num">D</span>발주처 안전보건관리계획서 양식</h3>
+      <div class="note">발주처마다 요구 항목·증빙서류가 다릅니다. 아래에서 이 공고에 맞는 양식을 고르세요.
+        목록에 없는 발주처라면 "새 발주처 양식 등록"에서 원문을 붙여넣어 AI로 구조를 분석해 등록할 수 있습니다.
+        등록된 양식은 프록시 서버에 저장되어 다음에 같은 발주처를 만났을 때 바로 재사용됩니다.</div>
+      ${state.templateFetchNote ? `<div class="note" style="background:#EEF3EE;border-left-color:var(--risk-low);">${state.templateFetchNote}</div>`:""}
+      <div class="tplselectrow">
+        <select id="tplSelect"></select>
+        <button class="btn ghost small" id="btnRefreshTpl">서버에서 목록 새로고침</button>
+      </div>
+      <div class="chipbar" id="tplPreview"></div>
+
+      <div style="margin-top:14px;">
+        <button class="linklike" id="toggleNewTpl">${state.newTemplateOpen ? "▲ 새 발주처 양식 등록 닫기" : "＋ 새 발주처 양식 등록"}</button>
+      </div>
+      <div id="newTplBox"></div>
+    </div>
+  `);
+
+  const sel = card.querySelector("#tplSelect");
+  Object.values(state.templates).forEach(t=>{
+    const opt = document.createElement("option");
+    opt.value = t.id; opt.textContent = t.name;
+    if(t.id === state.selectedTemplateId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.onchange = e=>{ state.selectedTemplateId = e.target.value; render(); };
+  card.querySelector("#btnRefreshTpl").onclick = fetchServerTemplates;
+
+  drawTplPreview(card);
+
+  card.querySelector("#toggleNewTpl").onclick = ()=>{
+    state.newTemplateOpen = !state.newTemplateOpen;
+    render();
+  };
+  if(state.newTemplateOpen){
+    card.querySelector("#newTplBox").appendChild(renderNewTemplateForm());
+  }
+  return card;
+}
+
+function drawTplPreview(card){
+  const box = card.querySelector("#tplPreview");
+  const tpl = currentTemplate();
+  box.innerHTML = "";
+  if(!tpl) return;
+  tpl.sections.forEach(s=>{
+    box.appendChild(el(`<span class="chip tplchip">${s.label}</span>`));
+  });
+}
+
+function renderNewTemplateForm(){
+  const d = state.newTemplateDraft;
+  const box = el(`
+    <div class="tplbox">
+      <div class="grid2">
+        <div class="field"><label>발주기관명</label><input type="text" id="nt_agency" value="${d.agencyName}" placeholder="예: OO시청, OO군, 조달청 등"></div>
+        <div class="field"><label>양식 파일 업로드(.docx, 선택)</label><input type="file" id="nt_file" accept=".docx"></div>
+      </div>
+      <div class="field">
+        <label>양식 원문 붙여넣기</label>
+        <textarea id="nt_raw" rows="8" placeholder="해당 발주처가 배포한 안전보건관리계획서 작성양식의 목차/항목 설명을 붙여넣으세요. hwp 파일이면 한글에서 전체 복사 후 붙여넣거나, .docx라면 위에서 업로드하세요.">${d.rawText}</textarea>
+      </div>
+      ${d.error ? `<div class="err">${d.error}</div>` : ""}
+      <div class="cardfoot" style="border:none;padding-top:6px;">
+        <button class="btn primary small" id="btnParseTpl" ${d.parsing?"disabled":""}>${d.parsing ? "분석 중…" : "AI로 양식 구조 분석 후 등록"}</button>
+      </div>
+    </div>
+  `);
+  box.querySelector("#nt_agency").oninput = e=> d.agencyName = e.target.value;
+  box.querySelector("#nt_raw").oninput = e=> d.rawText = e.target.value;
+  box.querySelector("#btnParseTpl").onclick = parseAndRegisterTemplate;
+
+  const fileInput = box.querySelector("#nt_file");
+  fileInput.onchange = async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    if(typeof mammoth === "undefined"){
+      d.error = "docx 변환 라이브러리를 불러오지 못했습니다. 텍스트를 직접 붙여넣어 주세요.";
+      render(); return;
+    }
+    try{
+      const buf = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer: buf });
+      d.rawText = result.value;
+      render();
+    }catch(err){
+      d.error = "파일에서 텍스트를 추출하지 못했습니다. 원문을 직접 붙여넣어 주세요.";
+      render();
+    }
+  };
+  return box;
+}
+
+async function parseAndRegisterTemplate(){
+  const d = state.newTemplateDraft;
+  if(!d.rawText || d.rawText.trim().length < 30){
+    d.error = "양식 원문이 너무 짧습니다. 목차와 각 항목 설명이 포함되도록 붙여넣어 주세요.";
+    render(); return;
+  }
+  d.parsing = true; d.error = ""; render();
+
+  const system = "당신은 공공기관 입찰 안전보건관리계획서 작성양식을 분석해 구조화된 JSON 스키마로 변환하는 전문가입니다. 반드시 JSON만 출력하고, 다른 설명 문장은 절대 포함하지 마세요.";
+  const prompt = `다음은 "${d.agencyName || "발주기관"}"이 요구하는 안전보건관리계획서 작성양식 원문(목차/항목 설명)이다. 이를 분석하여 아래 스키마의 JSON으로만 출력하라(설명, 코드펜스 금지):
+
+{
+ "id": "영문/숫자 슬러그 (예: agency_2026)",
+ "name": "화면에 표시할 이름 (기관명을 포함)",
+ "sections": [
+   {
+     "key": "영문 슬러그",
+     "label": "화면에 표시할 항목명 (원문의 번호와 제목을 그대로 살릴 것)",
+     "kind": "ai 또는 template 또는 template_edu",
+     "evidence": ["이 항목 제출에 필요한 증빙서류명"],
+     "fields": [{"id":"영문id","label":"입력받을 구체적 수치/현황 항목명","placeholder":"예시값"}],
+     "instructions": "이 항목을 작성할 때 반드시 반영해야 할 구성·기준을 2~4문장으로 요약"
+   }
+ ]
+}
+
+규칙:
+- 표지/제출문에 해당하는 항목은 kind를 "template"으로 표시하라.
+- 안전보건교육계획(교육 실적 및 계획)에 해당하는 항목은 kind를 "template_edu"로 표시하라.
+- 그 외 서술형 항목은 모두 kind "ai"로 표시하라.
+- 증빙서류 제출이 필요한 항목에는 evidence와, 그 증빙서류에서 확인할 핵심 수치를 입력받을 fields를 채워라. 없으면 빈 배열로 두라.
+- 원문에 나온 항목 순서를 그대로 유지하라. 원문에 없는 항목을 새로 만들지 마라.
+
+원문:
+"""${d.rawText.slice(0,6000)}"""`;
+
+  try{
+    const raw = await callClaude(system, prompt);
+    const schema = JSON.parse(stripFence(raw));
+    if(!schema.id || !Array.isArray(schema.sections) || schema.sections.length===0){
+      throw new Error("스키마 형식이 올바르지 않습니다.");
+    }
+    state.templates[schema.id] = schema;
+    state.selectedTemplateId = schema.id;
+
+    if(state.proxyBase){
+      try{
+        await fetch(state.proxyBase.replace(/\/$/,"") + "/api/templates", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify(schema)
+        });
+      }catch(e){ /* 프록시 저장 실패해도 이번 세션에서는 계속 사용 가능 */ }
+    }
+    state.newTemplateDraft = { agencyName:"", rawText:"", parsing:false, error:"" };
+    state.newTemplateOpen = false;
+  }catch(e){
+    d.error = "양식 구조 분석에 실패했습니다. 목차와 각 항목 설명이 더 명확히 드러나도록 원문을 보완해 다시 시도하세요.";
+    d.parsing = false;
+    render();
+    return;
+  }
+  render();
+}
+
+function syncStep1Fields(scope){
+  state.proxyBase = scope.querySelector("#proxyInput").value.trim().replace(/\/$/,"");
+  state.gonggo.title = scope.querySelector("#f_title").value;
+  state.gonggo.agency = scope.querySelector("#f_agency").value;
+  state.gonggo.workType = scope.querySelector("#f_workType").value;
+  state.gonggo.budget = scope.querySelector("#f_budget").value;
+  state.gonggo.period = scope.querySelector("#f_period").value;
+  state.gonggo.location = scope.querySelector("#f_location").value;
+  state.gonggo.raw = scope.querySelector("#f_raw").value;
+  state.company.name = scope.querySelector("#c_name").value;
+  state.company.ceo = scope.querySelector("#c_ceo").value;
+  state.company.bizNo = scope.querySelector("#c_biz").value;
+  state.company.addr = scope.querySelector("#c_addr").value;
+  state.company.headcount = scope.querySelector("#c_headcount").value;
+}
+
+function renderResultList(scope){
+  const box = scope.querySelector("#resultList");
+  const statusEl = scope.querySelector("#searchStatus");
+  const errBox = scope.querySelector("#searchErrBox");
+  box.innerHTML = "";
+  errBox.innerHTML = state.searchError ? `<div class="err">${state.searchError}</div>` : "";
+  statusEl.textContent = state.searching ? "검색 중…" : (state.searchResults.length ? `${state.searchResults.length}건 조회됨` : "");
+  state.searchResults.forEach((r)=>{
+    const item = el(`
+      <div class="result-item">
+        <div>
+          <div class="rt">${r.title}</div>
+          <div class="rm">${r.agency} · ${r.workType} · ${r.budget}</div>
+        </div>
+        <button class="btn small">선택</button>
+      </div>
+    `);
+    item.querySelector("button").onclick = ()=>{
+      state.gonggo = {...r};
+      render();
+    };
+    box.appendChild(item);
+  });
+}
+
+async function doNaraSearch(){
+  const proxyBase = document.getElementById("proxyInput").value.trim().replace(/\/$/,"");
+  const kw = document.getElementById("kwInput").value.trim();
+  const days = document.getElementById("daysInput").value;
+  state.proxyBase = proxyBase;
+  if(!proxyBase){
+    state.searchError = "프록시 서버 주소가 없습니다. server/README.md를 참고해 로컬(또는 배포)에서 프록시 서버를 먼저 실행하세요.";
+    render(); return;
+  }
+  state.searching = true; state.searchError=""; render();
+  try{
+    const url = new URL(proxyBase + "/api/bids");
+    url.searchParams.set("days", days);
+    if(kw) url.searchParams.set("keyword", kw);
+    const res = await fetch(url.toString());
+    const data = await res.json();
+    if(!data.ok){
+      state.searchError = "프록시 응답 오류: " + (data.error || "알 수 없는 오류");
+      state.searchResults = [];
+    } else {
+      state.searchResults = (data.items||[]).map(it=>({
+        title: it.title || "(제목없음)",
+        agency: it.agency || "",
+        workType: it.workType || "",
+        budget: it.budget || "",
+        period: it.period || "",
+        location: it.location || "",
+        raw: ""
+      }));
+      if(state.searchResults.length===0){
+        state.searchError = "조회 결과가 없습니다. 검색어나 조회 기간(최근 며칠)을 조정해 보세요.";
+      }
+    }
+  }catch(e){
+    state.searchError = `프록시 서버(${proxyBase})에 연결할 수 없습니다. 서버가 실행 중인지, 주소가 맞는지 확인하세요.`;
+  }
+  state.searching = false;
+  render();
+}
+
+/* ============================================================
+   STEP 2 — 공사 성질 분석
+   ============================================================ */
+function renderStep2(){
+  const wrap = el(`<div></div>`);
+  wrap.innerHTML = pageHead("STEP 02 / 04", "공사 성질 분석", "확보한 공고 정보를 바탕으로 공정·위험요인·규모를 AI로 도출합니다. 결과는 모두 수정할 수 있습니다.");
+
+  wrap.appendChild(el(`
+    <div class="card">
+      <h3><span class="num">공고요약</span>${state.gonggo.title || "(공고명 없음)"}</h3>
+      <div class="grid3" style="font-size:12.5px;color:var(--ink-soft);">
+        <div>발주기관 : ${state.gonggo.agency||"—"}</div>
+        <div>공사종류 : ${state.gonggo.workType||"—"}</div>
+        <div>추정금액 : ${state.gonggo.budget||"—"}</div>
+      </div>
+      <div class="cardfoot">
+        <button class="btn primary" id="btnAnalyze">${state.analysis? "다시 분석" : "AI 공사 특성 분석 실행"}</button>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);" id="anStatus">
+          ${state.analyzing? "분석 중…" : ""}
+        </span>
+      </div>
+      <div id="anErrBox">${state.analyzeError?`<div class="err">${state.analyzeError}</div>`:""}</div>
+    </div>
+  `));
+
+  if(state.analysis){
+    const a = state.analysis;
+    const card = el(`
+      <div class="card">
+        <h3><span class="num">결과</span>분석 결과 (수정 가능)</h3>
+        <div class="grid2">
+          <div class="field"><label>공사 분류</label><input type="text" id="a_cat" value="${a.category}"></div>
+          <div class="field"><label>규모 구분</label>
+            <select id="a_scale">
+              <option ${a.scale==="소규모"?"selected":""}>소규모</option>
+              <option ${a.scale==="중규모"?"selected":""}>중규모</option>
+              <option ${a.scale==="대규모"?"selected":""}>대규모</option>
+            </select>
+          </div>
+        </div>
+        <label>주요 공정</label>
+        <div class="chipbar" id="procChips"></div>
+        <div class="addchip"><input type="text" id="procNew" placeholder="공정 추가 후 Enter"></div>
+
+        <div style="margin-top:16px;">
+          <label>공정별 예상 유해·위험요인</label>
+          <table id="riskTable"><thead><tr><th style="width:22%">공정</th><th>유해·위험요인</th><th style="width:14%">위험등급</th></tr></thead><tbody></tbody></table>
+        </div>
+
+        <label style="margin-top:16px;">특별 안전조치 권고</label>
+        <div class="chipbar" id="specialChips"></div>
+        <div class="addchip"><input type="text" id="specialNew" placeholder="권고사항 추가 후 Enter"></div>
+      </div>
+    `);
+    wrap.appendChild(card);
+    bindAnalysisEditors(card);
+  }
+
+  const nav = el(`<div class="navbtns">
+      <button class="btn ghost" id="back1">← 이전</button>
+      <button class="btn primary" id="toStep3" ${state.analysis? "":"disabled"}>문서 생성으로 이동 →</button>
+    </div>`);
+  wrap.appendChild(nav);
+
+  wrap.querySelector("#btnAnalyze").onclick = runAnalysis;
+  wrap.querySelector("#back1").onclick = ()=>{ state.step=1; render(); };
+  const toStep3 = wrap.querySelector("#toStep3");
+  if(toStep3) toStep3.onclick = ()=>{ state.step=3; render(); };
+
+  return wrap;
+}
+
+function bindAnalysisEditors(card){
+  const a = state.analysis;
+  card.querySelector("#a_cat").oninput = e=> a.category = e.target.value;
+  card.querySelector("#a_scale").onchange = e=> a.scale = e.target.value;
+
+  const procBox = card.querySelector("#procChips");
+  function drawProcs(){
+    procBox.innerHTML="";
+    a.processes.forEach((p,idx)=>{
+      const c = el(`<span class="chip">${p}<button aria-label="삭제">×</button></span>`);
+      c.querySelector("button").onclick = ()=>{ a.processes.splice(idx,1); drawProcs(); drawRiskTable(); };
+      procBox.appendChild(c);
+    });
+  }
+  drawProcs();
+  card.querySelector("#procNew").addEventListener("keydown", e=>{
+    if(e.key==="Enter" && e.target.value.trim()){
+      a.processes.push(e.target.value.trim()); e.target.value=""; drawProcs(); drawRiskTable();
+    }
+  });
+
+  const specBox = card.querySelector("#specialChips");
+  function drawSpecials(){
+    specBox.innerHTML="";
+    a.special.forEach((s,idx)=>{
+      const c = el(`<span class="chip">${s}<button aria-label="삭제">×</button></span>`);
+      c.querySelector("button").onclick = ()=>{ a.special.splice(idx,1); drawSpecials(); };
+      specBox.appendChild(c);
+    });
+  }
+  drawSpecials();
+  card.querySelector("#specialNew").addEventListener("keydown", e=>{
+    if(e.key==="Enter" && e.target.value.trim()){
+      a.special.push(e.target.value.trim()); e.target.value=""; drawSpecials();
+    }
+  });
+
+  function drawRiskTable(){
+    const tbody = card.querySelector("#riskTable tbody");
+    tbody.innerHTML = "";
+    a.risks.forEach((r)=>{
+      const badgeClass = r.grade==="상"?"high":(r.grade==="중"?"mid":"low");
+      const tr = el(`<tr>
+        <td>${r.process}</td>
+        <td>${r.hazard}</td>
+        <td><span class="badge ${badgeClass}">${r.grade}</span></td>
+      </tr>`);
+      tbody.appendChild(tr);
+    });
+    if(a.risks.length===0){
+      tbody.appendChild(el(`<tr><td colspan="3" style="color:var(--ink-soft);">공정을 추가하고 다시 분석하면 위험요인이 채워집니다.</td></tr>`));
+    }
+  }
+  drawRiskTable();
+}
+
+async function runAnalysis(){
+  state.analyzing = true; state.analyzeError=""; render();
+  const g = state.gonggo;
+  const system = "당신은 대한민국 건설현장 안전관리 전문가입니다. 반드시 JSON만 출력하세요. 다른 설명 문장을 절대 포함하지 마세요.";
+  const prompt = `다음 공고 정보를 바탕으로 공사의 성질을 분석하라.
+공고명: ${g.title}
+발주기관: ${g.agency}
+공사종류: ${g.workType}
+추정금액: ${g.budget}
+공사기간: ${g.period}
+현장위치: ${g.location}
+과업내용: ${g.raw || "(제공 없음, 공고명과 공사종류로 추정)"}
+
+아래 JSON 스키마로만 출력하라(설명 금지, 코드펜스 금지):
+{
+ "category": "공사 분류 한 줄",
+ "scale": "소규모|중규모|대규모 중 하나",
+ "processes": ["공정1","공정2","공정3"],
+ "risks": [{"process":"공정명","hazard":"유해위험요인 한 줄","grade":"상|중|하"}],
+ "special": ["특별 안전조치 권고 1","권고 2"]
+}
+processes는 3~5개, risks는 각 공정당 1개씩, special은 2~4개로 간결하게 작성하라.`;
+  try{
+    const raw = await callClaude(system, prompt);
+    const json = JSON.parse(stripFence(raw));
+    state.analysis = {
+      category: json.category || g.workType || "",
+      scale: json.scale || "중규모",
+      processes: json.processes || [],
+      risks: json.risks || [],
+      special: json.special || []
+    };
+  }catch(e){
+    state.analyzeError = "AI 분석 호출에 실패했습니다. 네트워크 상태를 확인하거나 아래에서 수동으로 입력해 진행할 수 있습니다.";
+    state.analysis = state.analysis || { category:g.workType||"", scale:"중규모", processes:[], risks:[], special:[] };
+  }
+  state.analyzing = false;
+  render();
+}
+
+/* ============================================================
+   STEP 3 — 항목별 자동생성 (선택된 템플릿의 섹션을 그대로 순회)
+   ============================================================ */
+function renderStep3(){
+  const wrap = el(`<div></div>`);
+  const tpl = currentTemplate();
+  wrap.innerHTML = pageHead("STEP 03 / 04", "항목별 자동생성",
+    `적용 양식: ${tpl.name}. 표지부터 마지막 항목까지 개별 생성·수정합니다.`);
+
+  const switcher = el(`
+    <div class="card" style="padding:14px 24px;">
+      <div class="tplselectrow">
+        <label style="margin:0;">양식 변경</label>
+        <select id="tplSwitch"></select>
+      </div>
+    </div>
+  `);
+  Object.values(state.templates).forEach(t=>{
+    const opt = document.createElement("option");
+    opt.value = t.id; opt.textContent = t.name;
+    if(t.id === state.selectedTemplateId) opt.selected = true;
+    switcher.querySelector("#tplSwitch").appendChild(opt);
+  });
+  switcher.querySelector("#tplSwitch").onchange = e=>{ state.selectedTemplateId = e.target.value; render(); };
+  wrap.appendChild(switcher);
+
+  tpl.sections.forEach(section=>{
+    wrap.appendChild(renderSectionCard(section));
+  });
+
+  const nav = el(`<div class="navbtns">
+      <button class="btn ghost" id="back2">← 이전</button>
+      <button class="btn primary" id="toStep4">미리보기로 이동 →</button>
+    </div>`);
+  wrap.appendChild(nav);
+  wrap.querySelector("#back2").onclick = ()=>{ state.step=2; render(); };
+  wrap.querySelector("#toStep4").onclick = ()=>{ state.step=4; render(); };
+  return wrap;
+}
+
+function renderSectionCard(section){
+  const sec = secStore(section.key);
+  const card = el(`
+    <div class="card">
+      <h3>
+        <span class="statusdot ${sec.status==='ready'?'ready':(sec.status==='loading'?'loading':'')}"></span>
+        ${section.label}
+      </h3>
+      ${section.evidence && section.evidence.length ? `<div class="note">필요 증빙서류: ${section.evidence.join(", ")}</div>` : ""}
+      ${renderFieldInputs(section)}
+      <textarea id="txt_${section.key}" rows="${section.kind==='template'?6:9}" placeholder="생성 버튼을 누르면 초안이 채워집니다. 이후 자유롭게 수정하세요.">${sec.text}</textarea>
+      <div class="cardfoot">
+        <button class="btn primary small" data-key="${section.key}">${sec.text? "다시 생성" : "생성"}</button>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--ink-soft);" class="secstatus"></span>
+      </div>
+    </div>
+  `);
+  card.querySelector("textarea").addEventListener("input", e=>{ sec.text = e.target.value; });
+  card.querySelector("button[data-key]").onclick = ()=> generateSection(section, card);
+  bindFieldInputs(card, section);
+  return card;
+}
+
+function renderFieldInputs(section){
+  if(!section.fields || !section.fields.length) return "";
+  const inputs = section.fields.map(f=>{
+    const val = state.fieldValues[section.key+"."+f.id] || "";
+    return `<div class="field"><label>${f.label}</label><input type="text" data-field="${section.key}.${f.id}" value="${val}" placeholder="${f.placeholder||''}"></div>`;
+  }).join("");
+  return `<div class="grid2">${inputs}</div>`;
+}
+function bindFieldInputs(card, section){
+  if(!section.fields) return;
+  section.fields.forEach(f=>{
+    const input = card.querySelector(`[data-field="${section.key}.${f.id}"]`);
+    if(input) input.oninput = e=> { state.fieldValues[section.key+"."+f.id] = e.target.value; };
+  });
+}
+
+async function generateSection(section, card){
+  const sec = secStore(section.key);
+  sec.status = "loading";
+  card.querySelector(".secstatus").textContent = "생성 중…";
+  card.querySelector("button[data-key]").disabled = true;
+
+  try{
+    let text;
+    if(section.kind === "template"){
+      text = templateCover();
+    } else if (section.kind === "template_edu"){
+      text = templateEducation();
+    } else {
+      text = await aiGenerateGenericSection(section);
+    }
+    sec.text = text;
+    sec.status = "ready";
+    card.querySelector("textarea").value = text;
+  }catch(e){
+    sec.status = "idle";
+    card.querySelector(".secstatus").textContent = "생성 실패 — 다시 시도하세요.";
+  }
+  card.querySelector("button[data-key]").disabled = false;
+  card.querySelector("button[data-key]").textContent = sec.text ? "다시 생성" : "생성";
+  card.querySelector(".statusdot").className = "statusdot " + (sec.status==="ready" ? "ready" : "");
+  if(sec.status==="ready") card.querySelector(".secstatus").textContent = "";
+}
+
+function templateCover(){
+  const g = state.gonggo, c = state.company;
+  const d = new Date();
+  return `${g.title || "0000사업(공사)"}
+안전·보건 관리계획서
+
+발주기관 : ${g.agency || "—"}
+공사종류 : ${g.workType || "—"}
+추정금액 : ${g.budget || "—"}
+공사기간 : ${g.period || "—"}
+현장위치 : ${g.location || "—"}
+
+제출문
+
+${g.agency || "발주기관"}의 "${g.title || "0000 공사"}" 수행을 위해
+아래와 같이 도급사업 안전·보건 관리계획서를 제출합니다.
+
+${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일
+
+업체명   : ${c.name || "—"}
+대표이사 : ${c.ceo || "—"} (서명 또는 인)
+사업자등록번호 : ${c.bizNo || "—"}
+소재지   : ${c.addr || "—"}
+
+${g.agency || "발주기관"} 귀하`;
+}
+
+function templateEducation(){
+  const a = state.analysis;
+  const hc = parseInt((state.company.headcount||"").replace(/[^0-9]/g,""), 10);
+  const specials = (a && a.special.length) ? a.special.map(s=>`- ${s}`).join("\n") : "- (2단계 분석 결과에 따라 자동 반영됩니다)";
+
+  let scaleNote, rows;
+  if(!isNaN(hc) && hc < 5){
+    scaleNote = "상시근로자 5인 미만 사업장으로, 산업안전보건법상 안전보건교육 의무 대상에 해당하지 않는다. (해당없음으로 처리, 근거: 상시근로자 수 " + state.company.headcount + ")";
+    rows = "(해당없음)";
+  } else if(!isNaN(hc) && hc < 50){
+    scaleNote = "상시근로자 50인 미만 사업장으로, 관리감독자 교육 및 근로자 교육만 대상이다.";
+    rows = `관리감독자 정기교육      | 현장 관리감독자      | 16시간 | 반기 1회
+근로자 정기안전보건교육  | 근로자 전원          | 6시간  | 반기 1회
+건설업 기초안전보건교육  | 건설일용근로자 전원  | 4시간  | 수시(고용 시)`;
+  } else {
+    scaleNote = "상시근로자 50인 이상 사업장으로, 관리감독자·근로자·특별교육을 모두 포함하여 작성한다.";
+    rows = `관리감독자 정기교육      | 현장 관리감독자      | 16시간 | 반기 1회
+근로자 정기안전보건교육  | 근로자 전원          | 6시간  | 반기 1회
+건설업 기초안전보건교육  | 건설일용근로자 전원  | 4시간  | 수시(고용 시)
+특별안전보건교육         | 해당 특별공정 종사자 | 16시간(신규) | 작업 변경 시`;
+  }
+
+  return `안전·보건교육 계획 및 기록 관리
+(산업안전보건법 시행규칙 [별표4][별표5] 기준)
+
+가. 사업장 규모 판단
+상시근로자 수 : ${state.company.headcount || "미입력"}
+${scaleNote}
+
+나. 교육 실적 및 계획
+${rows}
+
+* 건설일용근로자 및 작업내용 변경 근로자는 작업 투입 전 교육 이수를 확인한다.
+* 상시근로자 수는 '4대 사회보험 가입자 명부'로 확인하며, 관리감독자 교육확인서는 별첨한다.
+
+다. 공사 특성 기반 추가 교육 권고사항
+${specials}`;
+}
+
+async function aiGenerateGenericSection(section){
+  const g = state.gonggo, a = state.analysis || {category:"",scale:"",processes:[],risks:[],special:[]};
+  const risksText = a.risks.map(r=>`- ${r.process}: ${r.hazard} (위험등급 ${r.grade})`).join("\n") || "(없음)";
+  const procText = a.processes.join(", ") || "(없음)";
+  const fieldsText = (section.fields||[])
+    .map(f=>`${f.label}: ${state.fieldValues[section.key+"."+f.id] || "미입력"}`)
+    .join("\n");
+  const evidenceText = (section.evidence||[]).join(", ");
+
+  const contextBlock = `공고명: ${g.title}
+발주기관: ${g.agency}
+공사종류: ${g.workType}
+공사분류: ${a.category}
+규모: ${a.scale}
+주요공정: ${procText}
+공정별 위험요인:
+${risksText}`;
+
+  const system = "당신은 대한민국 건설현장 안전관리 실무자입니다. 실제 제출 가능한 문어체 한국어로만 작성하고, 서두 인사말이나 부연설명 없이 본문만 출력하세요.";
+  const prompt = `아래 정보를 바탕으로 "${section.label}" 항목을 작성하라.
+${contextBlock}
+${evidenceText ? "\n근거 증빙서류: " + evidenceText : ""}
+${fieldsText ? "\n입력된 수치/현황:\n" + fieldsText : ""}
+
+작성 지침:
+${section.instructions || "이 공사 특성에 맞춰 실제 제출 가능한 수준으로 구체적으로 작성하라. 해당 공사와 무관한 내용은 넣지 마라."}
+
+600자 내외로 간결하게 작성하라.`;
+
+  const raw = await callClaude(system, prompt);
+  return raw.trim();
+}
+
+/* ============================================================
+   STEP 4 — 미리보기 및 출력 (선택된 템플릿의 섹션을 그대로 순회)
+   ============================================================ */
+function renderStep4(){
+  const wrap = el(`<div></div>`);
+  const tpl = currentTemplate();
+  wrap.innerHTML = pageHead("STEP 04 / 04", "미리보기 및 출력", "전체 문서를 조립하여 확인하고, 인쇄(PDF 저장) 또는 텍스트 복사로 내보냅니다.");
+
+  const nav1 = el(`<div class="cardfoot no-print" style="border:none;margin-bottom:16px;">
+      <button class="btn primary" id="btnPrint">인쇄 / PDF로 저장</button>
+      <button class="btn ghost" id="btnCopy">전체 텍스트 복사</button>
+    </div>`);
+  wrap.appendChild(nav1);
+
+  const page = el(`<div class="previewpage"></div>`);
+  const headHtml = `<h1>${state.gonggo.title || "0000사업(공사)"}<br>안전·보건 관리계획서</h1>
+      <div class="psub">문서번호 ${docNumber()} · ${state.company.name||"—"} · 적용양식: ${tpl.name}</div>`;
+  let bodyHtml = "";
+  tpl.sections.forEach(section=>{
+    const sec = secStore(section.key);
+    if(section.kind === "template"){
+      bodyHtml += `<pre>${sec.text || "(표지 미생성)"}</pre>`;
+    } else {
+      bodyHtml += `<h2 class="sec">${section.label}</h2><pre>${sec.text || "(미생성)"}</pre>`;
+    }
+  });
+  page.innerHTML = headHtml + bodyHtml;
+  wrap.appendChild(page);
+
+  const nav = el(`<div class="navbtns no-print">
+      <button class="btn ghost" id="back3">← 이전</button>
+      <span></span>
+    </div>`);
+  wrap.appendChild(nav);
+
+  wrap.querySelector("#back3").onclick = ()=>{ state.step=3; render(); };
+  wrap.querySelector("#btnPrint").onclick = ()=> window.print();
+  wrap.querySelector("#btnCopy").onclick = ()=>{
+    const fullText = page.innerText;
+    navigator.clipboard.writeText(fullText).then(()=>{
+      alert("전체 문서 텍스트를 클립보드에 복사했습니다.");
+    }).catch(()=>{
+      alert("복사에 실패했습니다. 직접 선택하여 복사해 주세요.");
+    });
+  };
+
+  return wrap;
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+render();
+fetchServerTemplates();
+</script>
+</body>
+</html>

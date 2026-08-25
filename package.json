@@ -1,0 +1,16 @@
+{
+  "name": "nara-bid-proxy",
+  "version": "1.0.0",
+  "description": "나라장터(G2B) 입찰공고정보 API를 브라우저에서 안전하게 호출하기 위한 프록시 서버",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
