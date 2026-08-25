@@ -377,15 +377,18 @@ function renderStep1(){
       <div class="note">
         서비스키는 브라우저 화면이 아닌 프록시 서버(.env)에만 보관합니다. 아래에는 직접 만든(또는 로컬에서 실행 중인)
         프록시 서버 주소만 입력하면 됩니다. 프록시 서버 코드와 실행 방법은 함께 전달된 server/README.md를 참고하세요.
+        <br>⚠️ "최근 며칠간"은 <b>공고가 게시된 날짜</b> 기준입니다. 마감일이 아직 안 지난 공고라도, 게시된 지 오래됐다면 기간을 늘려야 검색됩니다.
       </div>
       <div class="grid3">
         <div class="field"><label>프록시 서버 주소</label><input type="text" id="proxyInput" placeholder="http://localhost:8787" value="${state.proxyBase}"></div>
         <div class="field"><label>검색어</label><input type="text" id="kwInput" placeholder="예: 울타리, 전기공사"></div>
-        <div class="field"><label>최근 며칠간 공고</label>
+        <div class="field"><label>최근 며칠간 공고 (게시일 기준)</label>
           <select id="daysInput">
             <option value="7">7일</option>
             <option value="14" selected>14일</option>
             <option value="30">30일</option>
+            <option value="60">60일</option>
+            <option value="90">90일</option>
           </select>
         </div>
       </div>

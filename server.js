@@ -123,36 +123,66 @@ app.get("/health", (req, res) => {
  */
 app.get("/api/bids", async (req, res) => {
   try {
-    const { keyword = "", numOfRows = "10", pageNo = "1" } = req.query;
+    const { keyword = "" } = req.query;
+    const numOfRows = parseInt(req.query.numOfRows || "10", 10);
     const days = parseInt(req.query.days || "14", 10);
 
     const end = new Date();
     const begin = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
 
-    const params = {
-      type: "json",
-      numOfRows,
-      pageNo,
-      inqryDiv: "1", // 1: 공고게시일시 기준
-      inqryBgnDt: yyyymmddhhmm(begin),
-      inqryEndDt: yyyymmddhhmm(end),
-    };
-    if (keyword) params.bidNtceNm = keyword;
-
-    const url = buildUrl(
-      "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoCnstwk",
-      params
-    );
-
-    const upstream = await fetch(url);
-    const text = await upstream.text();
-    const parsed = parseNaraResponse(text);
-
-    if (!parsed.ok) {
-      return res.status(502).json({ ok: false, error: parsed.message });
+    // getBidPblancListInfoCnstwkPPSSrch("나라장터검색조건에 의한 공사조회")는
+    // bidNtceNm(공고명)으로 실제 필터링이 되는 전용 오퍼레이션이다. 다만 한 번에
+    // 조회 가능한 기간이 약 15일로 제한되어 있어, 그보다 긴 기간을 요청하면
+    // 15일 단위로 쪼개서 여러 번 호출한 뒤 결과를 합친다.
+    const CHUNK_DAYS = 15;
+    const chunks = [];
+    let chunkEnd = new Date(end);
+    while (chunkEnd > begin) {
+      const chunkBegin = new Date(
+        Math.max(begin.getTime(), chunkEnd.getTime() - CHUNK_DAYS * 24 * 60 * 60 * 1000)
+      );
+      chunks.push([chunkBegin, chunkEnd]);
+      chunkEnd = new Date(chunkBegin.getTime() - 60 * 1000); // 1분 당겨서 다음 구간 시작
     }
 
-    const items = parsed.items.map(it => ({
+    let items = [];
+    let lastError = null;
+
+    for (const [cBegin, cEnd] of chunks) {
+      const params = {
+        type: "json",
+        numOfRows: "100",
+        pageNo: "1",
+        inqryDiv: "1", // 1: 공고게시일시 기준
+        inqryBgnDt: yyyymmddhhmm(cBegin),
+        inqryEndDt: yyyymmddhhmm(cEnd),
+      };
+      if (keyword) params.bidNtceNm = keyword;
+
+      const url = buildUrl(
+        "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoCnstwkPPSSrch",
+        params
+      );
+
+      try {
+        const upstream = await fetch(url);
+        const text = await upstream.text();
+        const parsed = parseNaraResponse(text);
+        if (parsed.ok) {
+          items = items.concat(parsed.items);
+        } else {
+          lastError = parsed.message;
+        }
+      } catch (e) {
+        lastError = e.message;
+      }
+    }
+
+    if (items.length === 0 && lastError) {
+      return res.status(502).json({ ok: false, error: lastError });
+    }
+
+    let mapped = items.map(it => ({
       title: it.bidNtceNm || "",
       agency: it.ntceInsttNm || it.dminsttNm || "",
       bidNtceNo: it.bidNtceNo || "",
@@ -164,7 +194,23 @@ app.get("/api/bids", async (req, res) => {
       raw: it,
     }));
 
-    res.json({ ok: true, totalCount: parsed.totalCount, items });
+    // 공고번호 기준 중복 제거 (구간 경계에서 겹칠 수 있음)
+    const seen = new Set();
+    mapped = mapped.filter(it => {
+      if (seen.has(it.bidNtceNo)) return false;
+      seen.add(it.bidNtceNo);
+      return true;
+    });
+
+    // API가 이미 bidNtceNm으로 걸러주지만, 혹시 모를 불일치에 대비해 한 번 더 확인
+    if (keyword) {
+      const kw = keyword.trim().toLowerCase();
+      mapped = mapped.filter(it => it.title.toLowerCase().includes(kw));
+    }
+
+    mapped = mapped.slice(0, numOfRows);
+
+    res.json({ ok: true, totalCount: mapped.length, items: mapped, searchedRange: `${days}일 (게시일 기준)` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ ok: false, error: "프록시 서버 내부 오류: " + err.message });
