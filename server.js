@@ -140,7 +140,7 @@ app.get("/api/bids", async (req, res) => {
     if (keyword) params.bidNtceNm = keyword;
 
     const url = buildUrl(
-      "https://apis.data.go.kr/1230000/ad/BidPublicInfoService01/getBidPblancListInfoCnstwk01",
+      "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoCnstwk",
       params
     );
 
